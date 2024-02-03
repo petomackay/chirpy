@@ -8,7 +8,9 @@ import (
 func main() {
 	const port = "8080"
 	mux := http.NewServeMux()
+
 	mux.Handle("/", http.FileServer(http.Dir(".")))
+
 	corsMux := middlewareCors(mux)
 	server := &http.Server {
 		Addr: ":" + port,
