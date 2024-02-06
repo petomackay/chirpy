@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 )
@@ -9,8 +10,11 @@ func main() {
 	const port = "8080"
 	mux := http.NewServeMux()
 
-	mux.Handle("/app/", http.StripPrefix("/app/", http.FileServer(http.Dir("."))))
+	ac := apiConfig{}
+	mux.Handle("/app/", http.StripPrefix("/app/", ac.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
 	mux.HandleFunc("/healthz", healthzCallback)
+	mux.HandleFunc("/metrics", ac.metricsCallback)
+	mux.HandleFunc("/reset", ac.resetCallback)
 
 	corsMux := middlewareCors(mux)
 	server := &http.Server {
@@ -27,6 +31,32 @@ func healthzCallback(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
 	return
+}
+
+func (cfg *apiConfig) metricsCallback(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("Hits: %d", cfg.fileserverHits)))
+	return
+}
+
+func (cfg *apiConfig) resetCallback(w http.ResponseWriter, r *http.Request) {
+	cfg.fileserverHits = 0
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
+	return
+}
+
+type apiConfig struct {
+	fileserverHits int
+}
+
+func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
+	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
+		cfg.fileserverHits++
+		next.ServeHTTP(w, r)
+	})
 }
 
 func middlewareCors(next http.Handler) http.Handler {
