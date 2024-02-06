@@ -13,10 +13,12 @@ func main() {
 	ac := apiConfig{}
 	
 	r := chi.NewRouter()
+	api_router := chi.NewRouter()
 	r.Use(middleware.Logger)
-	r.Get("/healthz", healthzCallback)
-	r.Get("/metrics", ac.metricsCallback)
-	r.Get("/reset", ac.resetCallback)
+	api_router.Get("/healthz", healthzCallback)
+	api_router.Get("/metrics", ac.metricsCallback)
+	api_router.Get("/reset", ac.resetCallback)
+	r.Mount("/api", api_router)
 
 	fsHandler := ac.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir("."))))
 	r.Handle("/app/*", fsHandler)
