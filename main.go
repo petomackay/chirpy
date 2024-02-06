@@ -4,19 +4,25 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 func main() {
 	const port = "8080"
-	mux := http.NewServeMux()
-
 	ac := apiConfig{}
-	mux.Handle("/app/", http.StripPrefix("/app/", ac.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
-	mux.HandleFunc("/healthz", healthzCallback)
-	mux.HandleFunc("/metrics", ac.metricsCallback)
-	mux.HandleFunc("/reset", ac.resetCallback)
+	
+	r := chi.NewRouter()
+	r.Use(middleware.Logger)
+	r.Get("/healthz", healthzCallback)
+	r.Get("/metrics", ac.metricsCallback)
+	r.Get("/reset", ac.resetCallback)
 
-	corsMux := middlewareCors(mux)
+	fsHandler := ac.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir("."))))
+	r.Handle("/app/*", fsHandler)
+	r.Handle("/app", fsHandler)
+
+	corsMux := middlewareCors(r)
 	server := &http.Server {
 		Addr: ":" + port,
 		Handler: corsMux,
