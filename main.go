@@ -8,17 +8,32 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
+const adminMetricsPage = `
+<html>
+
+<body>
+    <h1>Welcome, Chirpy Admin</h1>
+    <p>Chirpy has been visited %d times!</p>
+</body>
+
+</html>
+`
+
 func main() {
 	const port = "8080"
 	ac := apiConfig{}
 	
 	r := chi.NewRouter()
-	api_router := chi.NewRouter()
 	r.Use(middleware.Logger)
+	
+	api_router := chi.NewRouter()
 	api_router.Get("/healthz", healthzCallback)
-	api_router.Get("/metrics", ac.metricsCallback)
 	api_router.Get("/reset", ac.resetCallback)
 	r.Mount("/api", api_router)
+
+	admin_router := chi.NewRouter()
+	admin_router.Get("/metrics", ac.metricsCallback)
+	r.Mount("/admin", admin_router)
 
 	fsHandler := ac.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir("."))))
 	r.Handle("/app/*", fsHandler)
@@ -42,9 +57,9 @@ func healthzCallback(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *apiConfig) metricsCallback(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("Hits: %d", cfg.fileserverHits)))
+	w.Write([]byte(fmt.Sprintf(adminMetricsPage, cfg.fileserverHits)))
 	return
 }
 
