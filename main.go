@@ -2,24 +2,17 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-const adminMetricsPage = `
-<html>
-
-<body>
-    <h1>Welcome, Chirpy Admin</h1>
-    <p>Chirpy has been visited %d times!</p>
-</body>
-
-</html>
-`
+type apiConfig struct {
+	fileserverHits int
+}
 
 func main() {
 	const port = "8080"
@@ -28,15 +21,17 @@ func main() {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	
-	api_router := chi.NewRouter()
-	api_router.Get("/healthz", healthzCallback)
-	api_router.Get("/reset", ac.resetCallback)
-	api_router.Post("/validate_chirp", validateChirpHandler)
-	r.Mount("/api", api_router)
+	apiRouter := chi.NewRouter()
+	apiRouter.Get("/healthz", healthzCallback)
+	apiRouter.Get("/reset", ac.resetCallback)
+	apiRouter.Post("/validate_chirp", validateChirpHandler)
+	apiRouter.Get("/chirps", getChirpsHandler)
+	apiRouter.Post("/chirps", validateChirpHandler)
+	r.Mount("/api", apiRouter)
 
-	admin_router := chi.NewRouter()
-	admin_router.Get("/metrics", ac.metricsCallback)
-	r.Mount("/admin", admin_router)
+	adminRouter := chi.NewRouter()
+	adminRouter.Get("/metrics", ac.metricsCallback)
+	r.Mount("/admin", adminRouter)
 
 	fsHandler := ac.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir("."))))
 	r.Handle("/app/*", fsHandler)
@@ -52,105 +47,59 @@ func main() {
 	log.Fatal(server.ListenAndServe())
 }
 
-// TODO: I'll write it out for sake of repetition when learning, but it needs a refactor
-// probably generic handleEror and sendJson functions will do nicely
 func validateChirpHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "applicaton/json")
 	type chirpParams struct {
 		Body string `json:"body"`
-	}
-
-	type errorBody struct {
-		Error string `json:"error"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
 	chirp := chirpParams{}
 	err := decoder.Decode(&chirp)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		error := errorBody {
-			Error: "Something went wrong",
-		}
-		dat, err := json.Marshal(error)
-		if err != nil {
-			log.Printf("Error marshalling JSON: %s", err)
-			return
-		}
-		w.Write(dat)
+		handleError("Couldn't decode json", http.StatusInternalServerError, w)
 		return
 	}
 
 	if len(chirp.Body) > 140 {
-                 error := errorBody {
-			Error: "Chirp is too long",
-		}
-		dat, err := json.Marshal(error)
-		if err != nil {
-			log.Printf("Error marshalling JSON: %s", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		w.WriteHeader(400)
-		w.Write(dat)
+		handleError("Chirp is too long", 400, w)
 		return
 	}
 
+	re := regexp.MustCompile(`(?i)kerfuffle|sharbert|fornax`)
+	sanitized := re.ReplaceAllString(chirp.Body, "****")
+
 	type resp struct {
-		Valid bool `json:"valid"`
+		Id int `json:"id"`
+		Body string `json:"body"`
 	}
 
-	dat, err := json.Marshal(resp{
-		Valid: true,
-	})
+	id := 1
+	responseData := resp {
+		Id: id,
+		Body: sanitized,
 
+	}
+	sendJson(responseData, http.StatusOK, w)
+}
+
+func handleError(errorMsg string, statusCode int, w http.ResponseWriter) {
+	type errorBody struct {
+		Error string `json:"error"`
+	}
+	errorData := errorBody {
+		Error: errorMsg,
+	}
+	sendJson(errorData, statusCode, w)
+}
+
+func sendJson(data interface{}, statusCode int, w http.ResponseWriter) {
+	dat, err := json.Marshal(data)
+	if err != nil {
+		log.Printf("Error marshalling JSON: %s", err)
+		return
+	}
+	w.WriteHeader(statusCode)
 	w.Write(dat)
-	w.WriteHeader(http.StatusOK)
-
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 }
 
-func healthzCallback(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
-	return
-}
-
-func (cfg *apiConfig) metricsCallback(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf(adminMetricsPage, cfg.fileserverHits)))
-	return
-}
-
-func (cfg *apiConfig) resetCallback(w http.ResponseWriter, r *http.Request) {
-	cfg.fileserverHits = 0
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
-	return
-}
-
-type apiConfig struct {
-	fileserverHits int
-}
-
-func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
-	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
-		cfg.fileserverHits++
-		next.ServeHTTP(w, r)
-	})
-}
-
-func middlewareCors(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
-		w.Header().Set("Access-Control-Allow-Headers", "*")
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
