@@ -13,6 +13,11 @@ type DB struct {
 	mux  *sync.RWMutex
 }
 
+type User struct {
+	Id    int    `json:"id"`
+	Email string `json:"email"`
+}
+
 type Chirp struct {
 	Id   int    `json:"id"`
 	Body string `json:"body"`
@@ -20,6 +25,7 @@ type Chirp struct {
 
 type DBStructure struct {
 	Chirps map[int]Chirp `json:"chirps"`
+	Users  map[int]User  `json:"users"`
 }
 
 func NewDB(path string) (*DB, error) {
@@ -31,6 +37,28 @@ func NewDB(path string) (*DB, error) {
 		return nil, err
 	}
 	return &db, nil
+}
+
+func (db *DB) CreateUser(email string) (User, error) {
+	db.mux.Lock()
+	defer db.mux.Unlock()
+
+	dbStruct, err := db.loadDB()
+	if err != nil {
+		log.Println("Couldn't load DB: " + err.Error())
+		return User{}, err
+	}
+
+	id := len(dbStruct.Users) + 1
+	user := User{
+		Id:    id,
+		Email: email,
+	}
+	dbStruct.Users[id] = user
+	if err := db.writeDB(dbStruct); err != nil {
+		return User{}, nil
+	}
+	return user, nil
 }
 
 func (db *DB) CreateChirp(body string) (Chirp, error) {
@@ -97,7 +125,11 @@ func (db *DB) ensureDB() error {
 			log.Printf("Couldn't create file %s\n", db.path)
 			return err
 		}
-		if err := db.writeDB(DBStructure{Chirps: make(map[int]Chirp)}); err != nil {
+		emptyStruct := DBStructure{
+			Chirps: make(map[int]Chirp),
+			Users:  make(map[int]User),
+		}
+		if err := db.writeDB(emptyStruct); err != nil {
 			log.Println("Error when initializing the DB: " + err.Error())
 			return err
 		}

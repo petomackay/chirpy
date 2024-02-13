@@ -35,6 +35,7 @@ func main() {
 	apiRouter.Get("/chirps", getChirpsHandler)
 	apiRouter.Get("/chirps/{id}", getChirpByIDHandler)
 	apiRouter.Post("/chirps", postChirpHandler)
+	apiRouter.Post("/users", postUsersHandler)
 	r.Mount("/api", apiRouter)
 
 	adminRouter := chi.NewRouter()
@@ -122,6 +123,31 @@ func getChirpByIDHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendJson(chirp, http.StatusOK, w)
+
+}
+
+func postUsersHandler(w http.ResponseWriter, r *http.Request) {
+	type userBody struct {
+		Email string `json:"email"`
+	}
+	decoder := json.NewDecoder(r.Body)
+	user := userBody{}
+	if err := decoder.Decode(&user); err != nil {
+		handleError("Couldn't decode user json: "+err.Error(), http.StatusBadRequest, w)
+		return
+	}
+	db, err := database.NewDB("database.json")
+	if err != nil {
+		handleError("Couldn't create a new database: "+err.Error(), http.StatusInternalServerError, w)
+		return
+	}
+
+	responseData, err := db.CreateUser(user.Email)
+	if err != nil {
+		handleError("Couldn't create a new user: "+err.Error(), http.StatusInternalServerError, w)
+		return
+	}
+	sendJson(responseData, http.StatusCreated, w)
 
 }
 
