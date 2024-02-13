@@ -40,9 +40,6 @@ func NewDB(path string) (*DB, error) {
 }
 
 func (db *DB) CreateUser(email string) (User, error) {
-	db.mux.Lock()
-	defer db.mux.Unlock()
-
 	dbStruct, err := db.loadDB()
 	if err != nil {
 		log.Println("Couldn't load DB: " + err.Error())
@@ -62,9 +59,6 @@ func (db *DB) CreateUser(email string) (User, error) {
 }
 
 func (db *DB) CreateChirp(body string) (Chirp, error) {
-	db.mux.Lock()
-	defer db.mux.Unlock()
-
 	dbStruct, err := db.loadDB()
 	if err != nil {
 		log.Println("Couldn't loadDB: " + err.Error())
@@ -86,9 +80,6 @@ func (db *DB) CreateChirp(body string) (Chirp, error) {
 }
 
 func (db *DB) GetChirp(id int) (Chirp, error) {
-	db.mux.RLock()
-	defer db.mux.RUnlock()
-
 	dbStruct, err := db.loadDB()
 	if err != nil {
 		return Chirp{}, nil
@@ -101,9 +92,6 @@ func (db *DB) GetChirp(id int) (Chirp, error) {
 }
 
 func (db *DB) GetChirps() ([]Chirp, error) {
-	db.mux.RLock()
-	defer db.mux.RUnlock()
-
 	dbStruct, err := db.loadDB()
 	if err != nil {
 		return nil, err
@@ -116,9 +104,6 @@ func (db *DB) GetChirps() ([]Chirp, error) {
 }
 
 func (db *DB) ensureDB() error {
-	db.mux.Lock()
-	defer db.mux.Unlock()
-
 	if _, err := os.ReadFile(db.path); errors.Is(err, os.ErrNotExist) {
 		log.Printf("The DB file %s does not exist. Attempting to create it.\n", db.path)
 		if _, err := os.Create(db.path); err != nil {
@@ -138,6 +123,9 @@ func (db *DB) ensureDB() error {
 }
 
 func (db *DB) loadDB() (DBStructure, error) {
+	db.mux.RLock()
+	defer db.mux.RUnlock()
+
 	contents, err := os.ReadFile(db.path)
 	if err != nil {
 		log.Println("Couldn't read DB file: " + err.Error())
@@ -153,6 +141,9 @@ func (db *DB) loadDB() (DBStructure, error) {
 }
 
 func (db *DB) writeDB(dbStructure DBStructure) error {
+	db.mux.Lock()
+	defer db.mux.Unlock()
+
 	dat, err := json.Marshal(dbStructure)
 	if err != nil {
 		return err

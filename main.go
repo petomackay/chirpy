@@ -15,6 +15,7 @@ import (
 
 type apiConfig struct {
 	fileserverHits int
+	db             *database.DB
 }
 
 type Chirp struct {
@@ -24,7 +25,16 @@ type Chirp struct {
 
 func main() {
 	const port = "8080"
-	ac := apiConfig{}
+
+	db, err := database.NewDB("database.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ac := apiConfig{
+		fileserverHits: 0,
+		db:             db,
+	}
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -32,10 +42,10 @@ func main() {
 	apiRouter := chi.NewRouter()
 	apiRouter.Get("/healthz", healthzCallback)
 	apiRouter.Get("/reset", ac.resetCallback)
-	apiRouter.Get("/chirps", getChirpsHandler)
-	apiRouter.Get("/chirps/{id}", getChirpByIDHandler)
-	apiRouter.Post("/chirps", postChirpHandler)
-	apiRouter.Post("/users", postUsersHandler)
+	apiRouter.Get("/chirps", ac.getChirpsHandler)
+	apiRouter.Get("/chirps/{id}", ac.getChirpByIDHandler)
+	apiRouter.Post("/chirps", ac.postChirpHandler)
+	apiRouter.Post("/users", ac.postUsersHandler)
 	r.Mount("/api", apiRouter)
 
 	adminRouter := chi.NewRouter()
@@ -56,7 +66,7 @@ func main() {
 	log.Fatal(server.ListenAndServe())
 }
 
-func postChirpHandler(w http.ResponseWriter, r *http.Request) {
+func (ac *apiConfig) postChirpHandler(w http.ResponseWriter, r *http.Request) {
 	type chirpParams struct {
 		Body string `json:"body"`
 	}
@@ -77,13 +87,7 @@ func postChirpHandler(w http.ResponseWriter, r *http.Request) {
 	re := regexp.MustCompile(`(?i)kerfuffle|sharbert|fornax`)
 	sanitized := re.ReplaceAllString(chirp.Body, "****")
 
-	db, err := database.NewDB("database.json")
-	if err != nil {
-		handleError("Couldn't create a new database: "+err.Error(), http.StatusInternalServerError, w)
-		return
-	}
-
-	responseData, err := db.CreateChirp(sanitized)
+	responseData, err := ac.db.CreateChirp(sanitized)
 	if err != nil {
 		handleError("Couldn't create a new chirp"+err.Error(), http.StatusInternalServerError, w)
 		return
@@ -91,13 +95,8 @@ func postChirpHandler(w http.ResponseWriter, r *http.Request) {
 	sendJson(responseData, http.StatusCreated, w)
 }
 
-func getChirpsHandler(w http.ResponseWriter, r *http.Request) {
-	db, err := database.NewDB("database.json")
-	if err != nil {
-		handleError(fmt.Sprintf("Couldn't get a DB connection: %v", err), http.StatusInternalServerError, w)
-		return
-	}
-	chirps, err := db.GetChirps()
+func (ac *apiConfig) getChirpsHandler(w http.ResponseWriter, r *http.Request) {
+	chirps, err := ac.db.GetChirps()
 	if err != nil {
 		handleError(fmt.Sprintf("Couldn't retrieve chirps: %v", err), http.StatusInternalServerError, w)
 		return
@@ -105,19 +104,14 @@ func getChirpsHandler(w http.ResponseWriter, r *http.Request) {
 	sendJson(chirps, http.StatusOK, w)
 }
 
-func getChirpByIDHandler(w http.ResponseWriter, r *http.Request) {
+func (ac *apiConfig) getChirpByIDHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
 		handleError("Invalid ID format: "+err.Error(), http.StatusBadRequest, w)
 		return
 	}
 
-	db, err := database.NewDB("database.json")
-	if err != nil {
-		handleError(fmt.Sprintf("Couldn't get a DB connection: %s", err), http.StatusInternalServerError, w)
-		return
-	}
-	chirp, err := db.GetChirp(id)
+	chirp, err := ac.db.GetChirp(id)
 	if err != nil {
 		handleError(fmt.Sprintf("Couldn't retrieve chirp: %s", err), http.StatusNotFound, w)
 		return
@@ -126,7 +120,7 @@ func getChirpByIDHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func postUsersHandler(w http.ResponseWriter, r *http.Request) {
+func (ac *apiConfig) postUsersHandler(w http.ResponseWriter, r *http.Request) {
 	type userBody struct {
 		Email string `json:"email"`
 	}
@@ -136,13 +130,8 @@ func postUsersHandler(w http.ResponseWriter, r *http.Request) {
 		handleError("Couldn't decode user json: "+err.Error(), http.StatusBadRequest, w)
 		return
 	}
-	db, err := database.NewDB("database.json")
-	if err != nil {
-		handleError("Couldn't create a new database: "+err.Error(), http.StatusInternalServerError, w)
-		return
-	}
 
-	responseData, err := db.CreateUser(user.Email)
+	responseData, err := ac.db.CreateUser(user.Email)
 	if err != nil {
 		handleError("Couldn't create a new user: "+err.Error(), http.StatusInternalServerError, w)
 		return
