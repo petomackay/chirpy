@@ -45,6 +45,7 @@ func main() {
 	apiRouter.Get("/chirps/{id}", ac.getChirpByIDHandler)
 	apiRouter.Post("/chirps", ac.postChirpHandler)
 	apiRouter.Post("/users", ac.postUsersHandler)
+	apiRouter.Post("/login", ac.userLoginHandler)
 	r.Mount("/api", apiRouter)
 
 	adminRouter := chi.NewRouter()

@@ -63,23 +63,3 @@ func (ac *apiConfig) getChirpByIDHandler(w http.ResponseWriter, r *http.Request)
 	sendJson(chirp, http.StatusOK, w)
 
 }
-
-func (ac *apiConfig) postUsersHandler(w http.ResponseWriter, r *http.Request) {
-	type userBody struct {
-		Email string `json:"email"`
-	}
-	decoder := json.NewDecoder(r.Body)
-	user := userBody{}
-	if err := decoder.Decode(&user); err != nil {
-		handleError("Couldn't decode user json: "+err.Error(), http.StatusBadRequest, w)
-		return
-	}
-
-	responseData, err := ac.db.CreateUser(user.Email)
-	if err != nil {
-		handleError("Couldn't create a new user: "+err.Error(), http.StatusInternalServerError, w)
-		return
-	}
-	sendJson(responseData, http.StatusCreated, w)
-
-}
