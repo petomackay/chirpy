@@ -57,7 +57,7 @@ func (db *DB) CreateUser(email string, password string) (User, error) {
 	}
 
 	id := len(dbStruct.Users) + 1
-	pwd, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	pwd, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		log.Printf("Couldn't hash user password: %s", err)
 		return User{}, nil
@@ -75,6 +75,23 @@ func (db *DB) CreateUser(email string, password string) (User, error) {
 	return user, nil
 }
 
+func (db *DB) UpdateUser(user User) error {
+	dbStruct, err := db.loadDB()
+	if err != nil {
+		log.Println("Couldn't load DB: " + err.Error())
+		return err
+	}
+	pwd, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("Couldn't hash user password: %s", err)
+		return err
+	}
+	user.Password = string(pwd)
+	dbStruct.Users[user.Id] = user
+	err = db.writeDB(dbStruct)
+	return err
+
+}
 func (db *DB) FindUserByEmail(email string) (User, error) {
 	dbStruct, err := db.loadDB()
 	if err != nil {
@@ -84,6 +101,21 @@ func (db *DB) FindUserByEmail(email string) (User, error) {
 
 	for _, user := range dbStruct.Users {
 		if user.Email == email {
+			return user, nil
+		}
+	}
+	return User{}, ErrNotExist
+}
+
+func (db *DB) FindUserById(id int) (User, error) {
+	dbStruct, err := db.loadDB()
+	if err != nil {
+		log.Println("Coudln't load DB: " + err.Error())
+		return User{}, nil
+	}
+
+	for _, user := range dbStruct.Users {
+		if user.Id == id {
 			return user, nil
 		}
 	}
