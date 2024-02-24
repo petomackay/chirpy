@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
+	"strings"
 )
 
 type webhookParams struct {
@@ -14,6 +16,12 @@ type webhookParams struct {
 }
 
 func (ac *apiConfig) handleWebhooks(w http.ResponseWriter, r *http.Request) {
+	if err := authenticatePolka(ac.polkaApiKey, r); err != nil {
+		log.Printf("Couldn't authenticate polka webhook request: %s", err)
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	decoder := json.NewDecoder(r.Body)
 	params := webhookParams{}
 	if err := decoder.Decode(&params); err != nil {
@@ -43,4 +51,19 @@ func (ac *apiConfig) handleWebhooks(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	return
+}
+
+func authenticatePolka(expectedApiKey string, r *http.Request) error {
+	apiKey, found := strings.CutPrefix(r.Header.Get("Authorization"), "ApiKey")
+	if !found {
+		log.Println("Couldn't find an ApiKey in the polka webhook request.")
+		return errors.New("Couldn't find ApiKey")
+	}
+	apiKey = strings.TrimSpace(apiKey)
+	if apiKey != expectedApiKey {
+		log.Printf("Polka ApiKey doesn't match: %s\n", apiKey)
+		return errors.New("Wrong ApiKey")
+	}
+
+	return nil
 }

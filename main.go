@@ -15,6 +15,7 @@ import (
 type apiConfig struct {
 	fileserverHits int
 	jwtSecret      string
+	polkaApiKey    string
 	db             *database.DB
 }
 
@@ -37,6 +38,7 @@ func main() {
 	ac := apiConfig{
 		fileserverHits: 0,
 		jwtSecret:      os.Getenv("JWT_SECRET"),
+		polkaApiKey:    os.Getenv("POLKA_API_KEY"),
 		db:             db,
 	}
 
