@@ -17,9 +17,10 @@ type DB struct {
 }
 
 type User struct {
-	Id       int    `json:"id"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Id        int    `json:"id"`
+	Email     string `json:"email"`
+	Password  string `json:"password"`
+	ChirpyRed bool   `json:"is_chirpy_red"`
 }
 
 type Chirp struct {
@@ -67,9 +68,10 @@ func (db *DB) CreateUser(email string, password string) (User, error) {
 	}
 
 	user := User{
-		Id:       id,
-		Email:    email,
-		Password: string(pwd),
+		Id:        id,
+		Email:     email,
+		Password:  string(pwd),
+		ChirpyRed: false,
 	}
 	dbStruct.Users[id] = user
 	if err := db.writeDB(dbStruct); err != nil {

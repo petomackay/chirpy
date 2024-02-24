@@ -14,12 +14,12 @@ type userBody struct {
 }
 
 type userResponse struct {
-	Id    int    `json:"id"`
-	Email string `json:"email"`
+	Id        int    `json:"id"`
+	Email     string `json:"email"`
+	ChirpyRed bool   `json:"is_chirpy_red"`
 }
 type userLoginResponse struct {
-	Id           int    `json:"id"`
-	Email        string `json:"email"`
+	userResponse
 	Token        string `json:"token"`
 	RefreshToken string `json:"refresh_token"`
 }
@@ -37,7 +37,7 @@ func (ac *apiConfig) postUsersHandler(w http.ResponseWriter, r *http.Request) {
 		handleError("Couldn't create a new user: "+err.Error(), http.StatusInternalServerError, w)
 		return
 	}
-	sendJson(userResponse{Id: responseData.Id, Email: responseData.Email}, http.StatusCreated, w)
+	sendJson(userResponse{Id: responseData.Id, Email: responseData.Email, ChirpyRed: responseData.ChirpyRed}, http.StatusCreated, w)
 }
 
 func (ac *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
@@ -70,7 +70,7 @@ func (ac *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sendJson(userLoginResponse{Id: user.Id, Email: user.Email, Token: accessToken, RefreshToken: refreshToken}, http.StatusOK, w)
+	sendJson(userLoginResponse{userResponse: userResponse{Id: user.Id, Email: user.Email, ChirpyRed: user.ChirpyRed}, Token: accessToken, RefreshToken: refreshToken}, http.StatusOK, w)
 }
 
 func (ac *apiConfig) putUsersHandler(w http.ResponseWriter, r *http.Request) {
