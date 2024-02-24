@@ -76,3 +76,35 @@ func (ac *apiConfig) getChirpByIDHandler(w http.ResponseWriter, r *http.Request)
 	sendJson(chirp, http.StatusOK, w)
 
 }
+
+func (ac *apiConfig) deleteChirpHandler(w http.ResponseWriter, r *http.Request) {
+	tokenString, found := extractTokenString(r)
+	if !found {
+		handleError("Unathorized", http.StatusUnauthorized, w)
+		return
+	}
+	user, err := ac.authenticateUserWithToken(tokenString)
+	if err != nil {
+		handleError("Unathorized", http.StatusUnauthorized, w)
+		return
+	}
+	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		handleError("Invalid ID format: "+err.Error(), http.StatusBadRequest, w)
+	}
+	chirp, err := ac.db.GetChirp(id)
+	if err != nil {
+		handleError("Chirp not found", http.StatusNotFound, w)
+		return
+	}
+	if chirp.UserId != user.Id {
+		handleError("Forbidden", http.StatusForbidden, w)
+		return
+	}
+	if err := ac.db.DeleteChirp(id); err != nil {
+		handleError("Couldn't delete chirp", http.StatusInternalServerError, w)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	return
+}

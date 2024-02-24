@@ -150,13 +150,22 @@ func (db *DB) CreateChirp(body string, userId int) (Chirp, error) {
 func (db *DB) GetChirp(id int) (Chirp, error) {
 	dbStruct, err := db.loadDB()
 	if err != nil {
-		return Chirp{}, nil
+		return Chirp{}, err
 	}
 	chirp, ok := dbStruct.Chirps[id]
 	if ok {
 		return chirp, nil
 	}
 	return Chirp{}, errors.New("Chirp not found.")
+}
+
+func (db *DB) DeleteChirp(id int) error {
+	dbStruct, err := db.loadDB()
+	if err != nil {
+		return err
+	}
+	delete(dbStruct.Chirps, id)
+	return nil
 }
 
 func (db *DB) GetChirps() ([]Chirp, error) {
