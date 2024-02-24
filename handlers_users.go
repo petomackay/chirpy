@@ -32,7 +32,13 @@ func (ac *apiConfig) postUsersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responseData, err := ac.db.CreateUser(user.Email, user.Password)
+	hashedPwd, err := hashPassword(user.Password)
+	if err != nil {
+		handleError("Couldn't create a new user: "+err.Error(), http.StatusInternalServerError, w)
+		return
+	}
+
+	responseData, err := ac.db.CreateUser(user.Email, hashedPwd)
 	if err != nil {
 		handleError("Couldn't create a new user: "+err.Error(), http.StatusInternalServerError, w)
 		return
@@ -91,8 +97,15 @@ func (ac *apiConfig) putUsersHandler(w http.ResponseWriter, r *http.Request) {
 		handleError("Couldn't find user", http.StatusUnauthorized, w)
 		return
 	}
+
+	hashedPwd, err := hashPassword(userBody.Password)
+	if err != nil {
+		handleError("Couldn't create a new user: "+err.Error(), http.StatusInternalServerError, w)
+		return
+	}
+
 	user.Email = userBody.Email
-	user.Password = userBody.Password
+	user.Password = hashedPwd
 
 	if err := ac.db.UpdateUser(user); err != nil {
 		handleError("Error when updating user: "+err.Error(), http.StatusInternalServerError, w)

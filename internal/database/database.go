@@ -7,8 +7,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 type DB struct {
@@ -61,16 +59,11 @@ func (db *DB) CreateUser(email string, password string) (User, error) {
 	}
 
 	id := len(dbStruct.Users) + 1
-	pwd, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		log.Printf("Couldn't hash user password: %s", err)
-		return User{}, nil
-	}
 
 	user := User{
 		Id:        id,
 		Email:     email,
-		Password:  string(pwd),
+		Password:  password,
 		ChirpyRed: false,
 	}
 	dbStruct.Users[id] = user
@@ -86,12 +79,6 @@ func (db *DB) UpdateUser(user User) error {
 		log.Println("Couldn't load DB: " + err.Error())
 		return err
 	}
-	pwd, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-	if err != nil {
-		log.Printf("Couldn't hash user password: %s", err)
-		return err
-	}
-	user.Password = string(pwd)
 	dbStruct.Users[user.Id] = user
 	err = db.writeDB(dbStruct)
 	return err
