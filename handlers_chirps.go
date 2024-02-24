@@ -10,14 +10,27 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+type chirpParams struct {
+	Body string `json:"body"`
+}
+
 func (ac *apiConfig) postChirpHandler(w http.ResponseWriter, r *http.Request) {
-	type chirpParams struct {
-		Body string `json:"body"`
+	tokenString, found := extractTokenString(r)
+	if !found {
+		handleError("Unauthorized", http.StatusUnauthorized, w)
+		return
 	}
+
+	user, err := ac.authenticateUserWithToken(tokenString)
+	if err != nil {
+		handleError("Unauthorized", http.StatusUnauthorized, w)
+	}
+
+	userId := user.Id
 
 	decoder := json.NewDecoder(r.Body)
 	chirp := chirpParams{}
-	err := decoder.Decode(&chirp)
+	err = decoder.Decode(&chirp)
 	if err != nil {
 		handleError("Couldn't decode json", http.StatusInternalServerError, w)
 		return
@@ -31,7 +44,7 @@ func (ac *apiConfig) postChirpHandler(w http.ResponseWriter, r *http.Request) {
 	re := regexp.MustCompile(`(?i)kerfuffle|sharbert|fornax`)
 	sanitized := re.ReplaceAllString(chirp.Body, "****")
 
-	responseData, err := ac.db.CreateChirp(sanitized)
+	responseData, err := ac.db.CreateChirp(sanitized, userId)
 	if err != nil {
 		handleError("Couldn't create a new chirp"+err.Error(), http.StatusInternalServerError, w)
 		return

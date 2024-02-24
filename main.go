@@ -52,6 +52,8 @@ func main() {
 	apiRouter.Post("/users", ac.postUsersHandler)
 	apiRouter.Post("/login", ac.userLoginHandler)
 	apiRouter.Put("/users", ac.putUsersHandler)
+	apiRouter.Post("/refresh", ac.handleRefresh)
+	apiRouter.Post("/revoke", ac.handleRevoke)
 	r.Mount("/api", apiRouter)
 
 	adminRouter := chi.NewRouter()

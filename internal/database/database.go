@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -22,13 +23,15 @@ type User struct {
 }
 
 type Chirp struct {
-	Id   int    `json:"id"`
-	Body string `json:"body"`
+	Id     int    `json:"id"`
+	Body   string `json:"body"`
+	UserId int    `json:"author_id"`
 }
 
 type DBStructure struct {
-	Chirps map[int]Chirp `json:"chirps"`
-	Users  map[int]User  `json:"users"`
+	Chirps  map[int]Chirp    `json:"chirps"`
+	Users   map[int]User     `json:"users"`
+	Revoked map[string]int64 `json:"revoked"`
 }
 
 var ErrAlreadyExists = errors.New("already exists")
@@ -114,15 +117,15 @@ func (db *DB) FindUserById(id int) (User, error) {
 		return User{}, nil
 	}
 
-	for _, user := range dbStruct.Users {
-		if user.Id == id {
-			return user, nil
-		}
+	if user, ok := dbStruct.Users[id]; ok {
+		log.Println("found user")
+		return user, nil
 	}
+	log.Printf("didn't find user with id, %d\n", id)
 	return User{}, ErrNotExist
 }
 
-func (db *DB) CreateChirp(body string) (Chirp, error) {
+func (db *DB) CreateChirp(body string, userId int) (Chirp, error) {
 	dbStruct, err := db.loadDB()
 	if err != nil {
 		log.Println("Couldn't loadDB: " + err.Error())
@@ -131,8 +134,9 @@ func (db *DB) CreateChirp(body string) (Chirp, error) {
 
 	id := len(dbStruct.Chirps) + 1
 	chirp := Chirp{
-		Id:   id,
-		Body: body,
+		Id:     id,
+		Body:   body,
+		UserId: userId,
 	}
 
 	dbStruct.Chirps[id] = chirp
@@ -175,8 +179,9 @@ func (db *DB) ensureDB() error {
 			return err
 		}
 		emptyStruct := DBStructure{
-			Chirps: make(map[int]Chirp),
-			Users:  make(map[int]User),
+			Chirps:  make(map[int]Chirp),
+			Users:   make(map[int]User),
+			Revoked: make(map[string]int64),
 		}
 		if err := db.writeDB(emptyStruct); err != nil {
 			log.Println("Error when initializing the DB: " + err.Error())
@@ -216,4 +221,24 @@ func (db *DB) writeDB(dbStructure DBStructure) error {
 		return err
 	}
 	return nil
+}
+
+func (db *DB) RevokeToken(tokenString string) error {
+	t := time.Now().UnixMilli()
+	dbStruct, err := db.loadDB()
+	if err != nil {
+		return err
+	}
+	dbStruct.Revoked[tokenString] = t
+	return db.writeDB(dbStruct)
+}
+
+func (db *DB) IsTokenRevoked(tokenString string) bool {
+	dbStruct, err := db.loadDB()
+	if err != nil {
+		log.Println("Couldn't load DB: " + err.Error())
+		return true
+	}
+	_, ok := dbStruct.Revoked[tokenString]
+	return ok
 }
