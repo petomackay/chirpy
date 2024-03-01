@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/petomackay/chirpy/internal/database"
 )
 
 type chirpParams struct {
@@ -53,10 +54,27 @@ func (ac *apiConfig) postChirpHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ac *apiConfig) getChirpsHandler(w http.ResponseWriter, r *http.Request) {
-	chirps, err := ac.db.GetChirps()
-	if err != nil {
-		handleError(fmt.Sprintf("Couldn't retrieve chirps: %v", err), http.StatusInternalServerError, w)
-		return
+	authorId := r.URL.Query().Get("author_id")
+	var chirps []database.Chirp
+	var err error
+	if authorId == "" {
+		chirps, err = ac.db.GetChirps()
+		if err != nil {
+			handleError(fmt.Sprintf("Couldn't retrieve chirps: %v", err), http.StatusInternalServerError, w)
+			return
+		}
+	} else {
+		authorIdInt, err := strconv.Atoi(authorId)
+
+		if err != nil {
+			handleError("BAD REQUEST", http.StatusBadRequest, w)
+			return
+		}
+		chirps, err = ac.db.GetChirpsByAuthor(authorIdInt)
+		if err != nil {
+			handleError(fmt.Sprintf("Couldn't retrieve chirps: %v", err), http.StatusInternalServerError, w)
+			return
+		}
 	}
 	sendJson(chirps, http.StatusOK, w)
 }

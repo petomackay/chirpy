@@ -169,6 +169,20 @@ func (db *DB) GetChirps() ([]Chirp, error) {
 	return chirps, nil
 }
 
+func (db *DB) GetChirpsByAuthor(authorId int) ([]Chirp, error) {
+	dbStruct, err := db.loadDB()
+	if err != nil {
+		return nil, err
+	}
+	chirps := make([]Chirp, 0, len(dbStruct.Chirps))
+	for _, chirp := range dbStruct.Chirps {
+		if chirp.UserId == authorId {
+			chirps = append(chirps, chirp)
+		}
+	}
+	return chirps, nil
+}
+
 func (db *DB) ensureDB() error {
 	if _, err := os.ReadFile(db.path); errors.Is(err, os.ErrNotExist) {
 		log.Printf("The DB file %s does not exist. Attempting to create it.\n", db.path)
