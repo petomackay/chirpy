@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"slices"
+	"sort"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -76,6 +78,18 @@ func (ac *apiConfig) getChirpsHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
+	order := r.URL.Query().Get("sort")
+	if order == "desc" {
+		sort.Slice(chirps, func(i, j int) bool {
+			return chirps[i].Id > chirps[j].Id
+		})
+	} else {
+		slices.SortFunc(chirps, func(a, b database.Chirp) int {
+			return a.Id - b.Id
+		})
+	}
+
 	sendJson(chirps, http.StatusOK, w)
 }
 
